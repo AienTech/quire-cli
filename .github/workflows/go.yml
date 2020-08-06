@@ -36,5 +36,5 @@ jobs:
     - name: Test
       run: go test -v .
 
-    - name: Go Release Binary
-      uses: ngs/go-release.action@v1.0.2
+    - name: Go Release Binaries
+      uses: wangyoucao577/go-release-action@v1.5
