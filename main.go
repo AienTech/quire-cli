@@ -2,21 +2,27 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/ddliu/go-httpclient"
-	"github.com/urfave/cli/v2"
 	"log"
 	"net/http"
+	urllib "net/url"
 	"os"
 	"os/exec"
 	"runtime"
+
+	"github.com/ddliu/go-httpclient"
+	"github.com/urfave/cli/v2"
 )
 
 type Configuration struct {
-	QuireAuthToken string
-	ClientId       string
-	ClientSecret   string
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	RefreshToken string `json:"refresh_token"`
 }
+
+var ClientId string
+var ClientSecret string
 
 func main() {
 
@@ -33,27 +39,17 @@ func main() {
 				Email: "aien@lo.agency",
 			},
 		},
-		Version: "0.0.1",
+		Version: "0.0.2",
 		Commands: []*cli.Command{
 			GitCommand,
 			{
 				Name:  "authorize",
 				Usage: "Authorize the app to use Quire Boards",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "clientId",
-						Usage: "Quire client id",
-					},
-					&cli.StringFlag{
-						Name:  "clientSecret",
-						Usage: "Quire client secret",
-					},
-				},
 				Action: func(c *cli.Context) error {
 					var err error
 					var cmd *exec.Cmd
 
-					var url = fmt.Sprintf("https://quire.io/oauth?client_id=%s&redirect_uri=http://localhost:1992", c.String("clientId"))
+					var url = fmt.Sprintf("https://quire.io/oauth?client_id=%s&redirect_uri=http://localhost:1992", ClientId)
 
 					switch runtime.GOOS {
 					case "linux":
@@ -86,13 +82,31 @@ func main() {
 						// we only want the single item.
 						key := keys[0]
 
-						configuration := Configuration{
-							QuireAuthToken: key,
-							ClientSecret:   c.String("clientSecret"),
-							ClientId:       c.String("clientId"),
+						formData := urllib.Values{
+							"grant_type":    {"authorization_code"},
+							"code":          {key},
+							"client_id":     {ClientId},
+							"client_secret": {ClientSecret},
 						}
 
-						err := SaveConfig(configuration)
+						resp, err := http.PostForm("https://quire.io/oauth/token", formData)
+						if err != nil {
+							log.Fatalln(err)
+						}
+
+						var result Configuration
+
+						/*
+							{
+								"access_token":"ACCESS_TOKEN",
+								"token_type":"bearer",
+								"expires_in":2592000,
+								"refresh_token":"REFRESH_TOKEN"
+							}
+						*/
+						json.NewDecoder(resp.Body).Decode(&result)
+
+						err = SaveConfig(result)
 						if err != nil {
 							w.WriteHeader(http.StatusInternalServerError)
 							_, _ = w.Write([]byte(err.Error()))

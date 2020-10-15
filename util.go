@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/ddliu/go-httpclient"
 	"io/ioutil"
 	"os/user"
 	"path"
+
+	"github.com/ddliu/go-httpclient"
 )
+
+const ConfigFileName = ".quirecli"
 
 func ReadBody(res *httpclient.Response) (map[string]interface{}, error) {
 	bodyBytes, err := ioutil.ReadAll(res.Body)
@@ -49,7 +52,7 @@ func LoadConfig() (*Configuration, error) {
 		return nil, err
 	}
 
-	file, err := ioutil.ReadFile(path.Join(u.HomeDir, ".gitlo"))
+	file, err := ioutil.ReadFile(path.Join(u.HomeDir, ConfigFileName))
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +78,5 @@ func SaveConfig(configuration Configuration) error {
 		return err
 	}
 
-	return ioutil.WriteFile(path.Join(u.HomeDir, ".gitlo"), file, 0644)
+	return ioutil.WriteFile(path.Join(u.HomeDir, ConfigFileName), file, 0644)
 }
-

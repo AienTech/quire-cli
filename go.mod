@@ -1,4 +1,4 @@
-module riant.jetbrains.space/p/services/code/lo-quire-cli
+module lo.jetbrains.space/p/services/code/lo-quire-cli
 
 go 1.14
 

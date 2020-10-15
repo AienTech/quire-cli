@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os/exec"
+	"strings"
+
 	"github.com/ddliu/go-httpclient"
 	"github.com/iancoleman/strcase"
 	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
-	"log"
-	"os/exec"
-	"strings"
 )
 
 type Task struct {
@@ -63,21 +64,8 @@ var GitCommand = &cli.Command{
 			return err
 		}
 
-		tokenRes, err := httpclient.Post("https://quire.io/oauth/token", map[string]string{
-			"grant_type":    "authorization_code",
-			"code":          conf.QuireAuthToken,
-			"client_id":     conf.ClientId,
-			"client_secret": conf.ClientSecret,
-		})
-		defer tokenRes.Body.Close()
-
-		bodyString, err := ReadBody(tokenRes)
-		if err != nil {
-			return err
-		}
-
 		httpclient.Defaults(httpclient.Map{
-			"Authorization": fmt.Sprintf("%s %s", bodyString["token_type"], bodyString["access_token"]),
+			"Authorization": fmt.Sprintf("%s %s", conf.TokenType, conf.AccessToken),
 		})
 
 		projRes, err := httpclient.Get(fmt.Sprintf("https://quire.io/api/task/list/id/%s", c.String("projectId")))
@@ -149,8 +137,7 @@ var GitCommand = &cli.Command{
 {{ "Name:" }}	{{ .Name }}
 {{ "Id:" }}	{{ .Id }}
 {{ "Status:" }}	{{ .Status }}%
-{{ "Assigned to:" }}	{{ .ListAssignees }}
-{{ "Description:" }}	{{ .Description }}`,
+{{ "Assigned to:" }}	{{ .ListAssignees }}`,
 		}
 
 		prompt := promptui.Select{
@@ -175,16 +162,18 @@ var GitCommand = &cli.Command{
 
 		branchName := fmt.Sprintf("%s/%.0f-%s", strcase.ToKebab(task.ListAssignees()), task.Id, strcase.ToKebab(task.Name))
 
-		log.Printf("creating branch %q based on %q", branchName, c.String("projectId"))
+		log.Printf("creating branch %q based on %q", branchName, c.String("from"))
 
-		err = exec.Command("git", "checkout", "-b", branchName, c.String("projectId")).Run()
+		err = exec.Command("git", "checkout", "-b", branchName, c.String("from")).Run()
 		if err != nil {
+			log.Fatalln(err)
 			return err
 		}
 
 		log.Println("updating task status")
 		_, err = httpclient.PutJson(fmt.Sprintf("https://quire.io/api/task/id/%s/%.0f", c.String("projectId"), task.Id), `{"status": 15}`)
 		if err != nil {
+			log.Fatalln(err)
 			return err
 		}
 
